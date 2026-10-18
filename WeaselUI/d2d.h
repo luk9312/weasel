@@ -126,6 +126,10 @@ struct D2D {
                      DWRITE_FONT_STRETCH& fontStretch);
   HRESULT GetBmpFromIcon(HICON hIcon, ComPtr<ID2D1Bitmap1>& pBitmap);
   HRESULT GetCachedBmpFromIcon(HICON hIcon, ComPtr<ID2D1Bitmap1>& pBitmap);
+  // load an image file (png/bmp/...) as a premultiplied bitmap; for images
+  // without alpha, pure magenta (#FF00FF) is treated as transparent
+  HRESULT GetCachedBmpFromFile(const std::wstring& path,
+                               ComPtr<ID2D1Bitmap1>& pBitmap);
 
   HRESULT CreateRoundedRectanglePath(const RECT& rc,
                                      float radius,
@@ -160,6 +164,8 @@ struct D2D {
   ComPtr<ID2D1SolidColorBrush> m_pBrush;
   HICON cachedIcon = nullptr;
   ComPtr<ID2D1Bitmap1> cachedIconBitmap;
+  std::wstring cachedImagePath;
+  ComPtr<ID2D1Bitmap1> cachedImageBitmap;
   struct CachedTextFormat {
     PtTextFormat format;
     uint64_t last_used;

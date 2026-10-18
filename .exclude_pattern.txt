@@ -7,3 +7,4 @@ winsparkle
 immdev.h
 SystemTraySDK.h
 ctffunc.h
+miniz

@@ -1354,6 +1354,68 @@ static void _UpdateUIStyle(RimeConfig* config, UI* ui, bool initialize) {
 }
 // load color configs to style, by "style/color_scheme" or specific scheme name
 // "color" which is default empty
+// parse 4 ints from "a, b, c, d" or a list [a, b, c, d]
+static void _RimeGetIntQuad(RimeConfig* config,
+                            const std::string& key,
+                            int (&out)[4]) {
+  char buffer[256] = {0};
+  if (rime_api->config_get_string(config, key.c_str(), buffer,
+                                  sizeof(buffer) - 1)) {
+    std::string text(buffer);
+    std::replace(text.begin(), text.end(), ',', ' ');
+    std::istringstream ss(text);
+    for (int i = 0; i < 4 && (ss >> out[i]); ++i)
+      ;
+    return;
+  }
+  for (int i = 0; i < 4; ++i)
+    rime_api->config_get_int(config, (key + "/@" + std::to_string(i)).c_str(),
+                             &out[i]);
+}
+
+// load one background image (skin) with its geometry, keys under |key|
+static void _LoadBackImage(RimeConfig* config,
+                           const std::string& key,
+                           std::wstring& image,
+                           int (&slice)[4],
+                           int (&padding)[4]) {
+  image.clear();
+  std::fill(std::begin(slice), std::end(slice), 0);
+  std::fill(std::begin(padding), std::end(padding), 0);
+  char buffer[MAX_PATH * 3] = {0};
+  if (!rime_api->config_get_string(config, key.c_str(), buffer,
+                                   sizeof(buffer) - 1))
+    return;
+  const fs::path resource(u8tow(buffer));
+  for (const auto& path : {resource, WeaselUserDataPath() / resource,
+                           WeaselSharedDataPath() / resource}) {
+    std::error_code ec;
+    if (path.is_absolute() && fs::is_regular_file(path, ec)) {
+      image = path.wstring();
+      break;
+    }
+  }
+  if (image.empty())
+    return;
+  _RimeGetIntQuad(config, key + "_slice", slice);
+  _RimeGetIntQuad(config, key + "_padding", padding);
+}
+
+// load background image (skin) settings of a color scheme
+static void _LoadBackImages(RimeConfig* config,
+                            const std::string& prefix,
+                            UIStyle& style) {
+  _LoadBackImage(config, prefix + "/back_image", style.back_image,
+                 style.back_image_slice, style.back_image_padding);
+  _LoadBackImage(config, prefix + "/back_image_vertical",
+                 style.back_image_vertical, style.back_image_vertical_slice,
+                 style.back_image_vertical_padding);
+  int anchor[4] = {-1, -1, 0, 0};
+  _RimeGetIntQuad(config, prefix + "/back_image_anchor", anchor);
+  style.back_image_anchor_x = anchor[0];
+  style.back_image_anchor_y = anchor[1];
+}
+
 static bool _UpdateUIStyleColor(RimeConfig* config,
                                 UIStyle& style,
                                 const std::string& color) {
@@ -1410,6 +1472,7 @@ static bool _UpdateUIStyleColor(RimeConfig* config,
           style.hilited_label_text_color);
     COLOR("hilited_mark_color", style.hilited_mark_color, 0);
 #undef COLOR
+    _LoadBackImages(config, prefix, style);
     return true;
   }
   return false;

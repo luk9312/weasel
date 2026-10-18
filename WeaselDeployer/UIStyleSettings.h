@@ -6,6 +6,7 @@
 #include <rime_levers_api.h>
 #include <WeaselIPCData.h>
 #include <WeaselStyleKeys.h>
+#include "SsfImporter.h"
 
 struct ColorSchemeInfo {
   std::string color_scheme_id;
@@ -32,6 +33,8 @@ class UIStyleSettings {
   bool GetPresetColorSchemes(std::vector<ColorSchemeInfo>* result);
   std::string GetActiveColorScheme();
   bool SelectColorScheme(const std::string& color_scheme_id);
+  // add a color scheme to weasel.custom.yaml, visible in this session at once
+  bool AddColorScheme(const ImportedColorScheme& scheme);
   bool LoadPreviewStyle(weasel::UIStyle* style) const;
   bool GetColorSettings(const std::string& color_scheme_id,
                         std::vector<ColorSettingInfo>* result);

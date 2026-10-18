@@ -39,6 +39,12 @@
     <ClInclude Include="UIStyleSettings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SsfImporter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MinizConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="DictManagementDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -63,6 +69,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UIStyleSettings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SsfImporter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MinizImpl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DictManagementDialog.cpp">

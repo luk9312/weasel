@@ -3,6 +3,7 @@
 #include "HorizontalLayout.h"
 #include "VHorizontalLayout.h"
 #include "VerticalLayout.h"
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <resource.h>
@@ -225,7 +226,7 @@ void WeaselPanel::MoveTo(RECT rc) {
 }
 
 void WeaselPanel::_ResizeWindow() {
-  const CSize& size = m_layout->GetContentSize();
+  const CSize& size = m_windowSize;
   RECT client_rect{};
   GetClientRect(m_hWnd, &client_rect);
   const int client_width = client_rect.right - client_rect.left;
@@ -319,6 +320,7 @@ void WeaselPanel::Refresh() {
   }
   _CreateLayout();
   m_layout->DoLayout();
+  _UpdateSkin();
   _ResizeWindow();
   if (m_preview_mode) {
     if (!m_preview_positioned && !m_preview_detached)
@@ -336,8 +338,8 @@ void WeaselPanel::RepositionPreview() {
   RECT parent_rect{};
   if (!GetWindowRect(m_parent, &parent_rect))
     return;
-  const int width = m_layout->GetContentSize().cx;
-  const int height = m_layout->GetContentSize().cy;
+  const int width = m_windowSize.cx;
+  const int height = m_windowSize.cy;
   const int x =
       parent_rect.left + (parent_rect.right - parent_rect.left - width) / 2;
   const int y = parent_rect.top - height;
@@ -420,6 +422,103 @@ void WeaselPanel::_UpdateOffsetY(CRect& arc, CRect& prc) {
   }
 }
 
+void WeaselPanel::_UpdateSkin() {
+  const CSize& content = m_layout->GetContentSize();
+  m_windowSize = content;
+  m_skinOffset.SetPoint(0, 0);
+  m_skinActive = false;
+  // the skin decorates the candidate window only, not status tips
+  const bool has_panel_content =
+      m_candidateCount > 0 ||
+      (!m_layout->IsInlinePreedit() && !m_ctx.preedit.empty());
+  // the vertical layout prefers the vertical image; either one serves as the
+  // fallback of the other
+  const bool has_vertical = !m_style.back_image_vertical.empty();
+  const bool use_vertical =
+      has_vertical && (m_style.layout_type == UIStyle::LAYOUT_VERTICAL ||
+                       m_style.back_image.empty());
+  const std::wstring& path =
+      use_vertical ? m_style.back_image_vertical : m_style.back_image;
+  if (path.empty() || hide_candidates || !has_panel_content ||
+      IS_FULLSCREENLAYOUT(m_style) || !m_pD2D->dc)
+    return;
+  if (FAILED(m_pD2D->GetCachedBmpFromFile(path, m_skinBitmap)) || !m_skinBitmap)
+    return;
+  const int* slice = use_vertical ? m_style.back_image_vertical_slice
+                                  : m_style.back_image_slice;
+  std::copy(slice, slice + 4, m_skinSlice);
+  const auto image = m_skinBitmap->GetPixelSize();
+  const int* padding = use_vertical ? m_style.back_image_vertical_padding
+                                    : m_style.back_image_padding;
+  // padding is where the text starts, so leave out the layout's own margins
+  const int margin_x = m_layout->offsetX + m_layout->real_margin_x;
+  const int margin_y = m_layout->offsetY + m_layout->real_margin_y;
+  const int left = DPI_SCALE(padding[0]) - margin_x;
+  const int top = DPI_SCALE(padding[1]) - margin_y;
+  const int right = DPI_SCALE(padding[2]) - margin_x;
+  const int bottom = DPI_SCALE(padding[3]) - margin_y;
+  m_windowSize.cx =
+      MAX((int)content.cx + left + right, DPI_SCALE((int)image.width));
+  m_windowSize.cy =
+      MAX((int)content.cy + top + bottom, DPI_SCALE((int)image.height));
+  m_skinOffset.SetPoint(left, top);
+  m_skinActive = true;
+}
+
+void WeaselPanel::_DrawSkin(const CRect& rc) {
+  const auto image = m_skinBitmap->GetPixelSize();
+  const int w = (int)image.width, h = (int)image.height;
+  const int* slice = m_skinSlice;
+  const int l = MIN(MAX(slice[0], 0), w), r = MIN(MAX(slice[2], 0), w - l);
+  const int t = MIN(MAX(slice[1], 0), h), b = MIN(MAX(slice[3], 0), h - t);
+  float dl = (float)DPI_SCALE(l), dr = (float)DPI_SCALE(r);
+  float dt = (float)DPI_SCALE(t), db = (float)DPI_SCALE(b);
+  // shrink the fixed edges if the window is smaller than them
+  if (dl + dr > rc.Width()) {
+    const float k = rc.Width() / (dl + dr);
+    dl *= k;
+    dr *= k;
+  }
+  if (dt + db > rc.Height()) {
+    const float k = rc.Height() / (dt + db);
+    dt *= k;
+    db *= k;
+  }
+  // source ranges of the left/top, middle and right/bottom slices; when the
+  // fixed edges cover the whole image, the middle stretches the pixel column
+  // (or row) where they meet so the window is not left empty there
+  float sx[3][2] = {
+      {0.0f, (float)l}, {(float)l, (float)(w - r)}, {(float)(w - r), (float)w}};
+  float sy[3][2] = {
+      {0.0f, (float)t}, {(float)t, (float)(h - b)}, {(float)(h - b), (float)h}};
+  if (sx[1][1] <= sx[1][0] && w > 0) {
+    sx[1][0] = (float)MIN(MAX(l - 1, 0), w - 1);
+    sx[1][1] = sx[1][0] + 1.0f;
+  }
+  if (sy[1][1] <= sy[1][0] && h > 0) {
+    sy[1][0] = (float)MIN(MAX(t - 1, 0), h - 1);
+    sy[1][1] = sy[1][0] + 1.0f;
+  }
+  // whole pixels on the destination avoid seams between the slices
+  const float dx[4] = {(float)rc.left, roundf(rc.left + dl),
+                       roundf(rc.right - dr), (float)rc.right};
+  const float dy[4] = {(float)rc.top, roundf(rc.top + dt),
+                       roundf(rc.bottom - db), (float)rc.bottom};
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      if (sx[j][1] <= sx[j][0] || sy[i][1] <= sy[i][0] || dx[j + 1] <= dx[j] ||
+          dy[i + 1] <= dy[i])
+        continue;
+      const D2D1_RECT_F dst = D2D1::RectF(dx[j], dy[i], dx[j + 1], dy[i + 1]);
+      const D2D1_RECT_F src =
+          D2D1::RectF(sx[j][0], sy[i][0], sx[j][1], sy[i][1]);
+      m_pD2D->dc->DrawBitmap(m_skinBitmap.Get(), &dst, 1.0f,
+                             D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, &src,
+                             nullptr);
+    }
+  }
+}
+
 void WeaselPanel::DoPaint() {
   if (!m_pD2D || !m_layout || !m_pD2D->dc || !m_pD2D->swapChain)
     return;
@@ -433,18 +532,25 @@ void WeaselPanel::DoPaint() {
       return;
   }
   m_pD2D->dc->BeginDraw();
+  m_pD2D->dc->SetTransform(D2D1::Matrix3x2F::Identity());
   m_pD2D->dc->Clear(D2D1::ColorF({0.0f, 0.0f, 0.0f, 0.0f}));
   if (!hide_candidates) {
     const bool should_draw_background =
         ((!m_ctx.empty() && !m_style.inline_preedit) ||
          (m_style.inline_preedit && (m_candidateCount || !m_ctx.aux.empty())));
-    if (should_draw_background) {
+    if (should_draw_background && m_skinActive) {
+      _DrawSkin(CRect(0, 0, m_windowSize.cx, m_windowSize.cy));
+    } else if (should_draw_background) {
       CRect& rc = m_layout->GetContentRect();
       IsToRoundStruct roundInfo;
       _HighlightRect(rc, DPI_SCALE(m_style.round_corner_ex),
                      DPI_SCALE(m_style.border), m_style.back_color,
                      m_style.shadow_color, m_style.border_color, roundInfo);
     }
+    // the layout is drawn inside the skin's text area
+    if (m_skinActive)
+      m_pD2D->dc->SetTransform(D2D1::Matrix3x2F::Translation(
+          (float)m_skinOffset.x, (float)m_skinOffset.y));
     CRect& prc = m_layout->GetPreeditRect();
     CRect& arc = m_layout->GetAuxiliaryRect();
     // if vertical auto reverse triggered
@@ -487,6 +593,7 @@ void WeaselPanel::DoPaint() {
     }
   }
 
+  m_pD2D->dc->SetTransform(D2D1::Matrix3x2F::Identity());
   auto hrEnd = m_pD2D->dc->EndDraw();
   if (FAILED(hrEnd)) {
     DEBUG << "EndDraw failed: " << HRESULTToString(hrEnd);
@@ -858,6 +965,13 @@ void WeaselPanel::_Reposition(bool adj) {
                ? m_layout->offsetY
                : (m_layout->offsetY / 2);
   }
+  if (m_skinActive) {
+    x -= m_style.back_image_anchor_x >= 0
+             ? DPI_SCALE(m_style.back_image_anchor_x)
+             : m_skinOffset.x;
+    if (adj && m_style.back_image_anchor_y > 0)
+      y -= DPI_SCALE(m_style.back_image_anchor_y);
+  }
   if (m_style.layout_type == UIStyle::LAYOUT_VERTICAL_TEXT &&
       !m_style.vertical_text_left_to_right) {
     x += m_layout->offsetX - width;
@@ -980,6 +1094,7 @@ LRESULT WeaselPanel::OnMouseMove(UINT uMsg, WPARAM wParam, LPARAM lParam) {
   if (ptScreen == m_lastCursorPos)
     return 0;
   m_lastCursorPos = ptScreen;
+  point.Offset(-m_skinOffset.x, -m_skinOffset.y);
   for (int i = 0; i < m_candidateCount; i++) {
     CRect rect = _GetInflatedCandRect(i);
     if (rect.PtInRect(point)) {
@@ -1042,6 +1157,7 @@ LRESULT WeaselPanel::OnLeftClickUp(UINT uMsg, WPARAM wParam, LPARAM lParam) {
   if (highlighted < 0)
     return 0;
   CPoint point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+  point.Offset(-m_skinOffset.x, -m_skinOffset.y);
 
   ::KillTimer(m_hWnd, AUTOREV_TIMER);
   m_bar_scale = 1.0;
@@ -1077,6 +1193,7 @@ LRESULT WeaselPanel::OnLeftClickDown(UINT uMsg, WPARAM wParam, LPARAM lParam) {
                               ? m_ctx.cinfo.highlighted
                               : -1;
   CPoint point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+  point.Offset(-m_skinOffset.x, -m_skinOffset.y);
   auto padx = DPI_SCALE(m_style.hilite_padding_x);
   auto pady = DPI_SCALE(m_style.hilite_padding_y);
   // capture
@@ -1084,9 +1201,10 @@ LRESULT WeaselPanel::OnLeftClickDown(UINT uMsg, WPARAM wParam, LPARAM lParam) {
     CRect rcw;
     GetClientRect(m_hWnd, &rcw);
     auto recth = highlighted >= 0 ? _GetInflatedCandRect(highlighted) : CRect();
-    if (recth.PtInRect(point))
+    if (recth.PtInRect(point)) {
+      recth.OffsetRect(m_skinOffset);
       _CaptureRect(recth);
-    else {
+    } else {
       CRect crc(rcw);
       // if shadow_color transparent, decrease the capture rectangle size
       if (COLORTRANSPARENT(m_style.shadow_color) &&

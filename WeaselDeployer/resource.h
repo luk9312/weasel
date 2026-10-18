@@ -57,6 +57,7 @@
 #define IDC_STYLE_VALUE_COMBO           1016
 #define IDC_STYLE_VALUE_EDIT            1017
 #define IDC_SET_STYLE                   1018
+#define IDC_IMPORT_SSF                  1019
 
 #define IDD_DIALOG_FONT          1999
 #define IDC_CBB_FONTPICKER       2000
@@ -80,7 +81,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        135
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1019
+#define _APS_NEXT_CONTROL_VALUE         1020
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

@@ -193,6 +193,8 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SwitcherSettingsDialog.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="MinizConfig.h" />
+    <ClInclude Include="SsfImporter.h" />
     <ClInclude Include="UIStyleSettings.h" />
     <ClInclude Include="UIStyleSettingsDialog.h" />
     <ClInclude Include="WeaselDeployer.h" />
@@ -209,6 +211,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SwitcherSettingsDialog.cpp" />
+    <ClCompile Include="MinizImpl.cpp" />
+    <ClCompile Include="SsfImporter.cpp" />
     <ClCompile Include="UIStyleSettings.cpp" />
     <ClCompile Include="UIStyleSettingsDialog.cpp" />
     <ClCompile Include="WeaselDeployer.cpp" />

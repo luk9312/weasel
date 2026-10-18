@@ -24,6 +24,7 @@ class UIStyleSettingsDialog : public CDialogDpiAware<UIStyleSettingsDialog> {
   MESSAGE_HANDLER(WM_CLOSE, OnClose)
   COMMAND_ID_HANDLER(IDOK, OnOK)
   COMMAND_ID_HANDLER(IDC_SELECT_FONT, OnSelectFont)
+  COMMAND_ID_HANDLER(IDC_IMPORT_SSF, OnImportSsf)
   COMMAND_HANDLER(IDC_COLOR_SCHEME, CBN_SELCHANGE, OnColorSchemeSelChange)
   COMMAND_HANDLER(IDC_COLOR_LIST, LBN_SELCHANGE, OnColorSettingSelChange)
   COMMAND_HANDLER(IDC_SET_COLOR, BN_CLICKED, OnSetColor)
@@ -39,6 +40,7 @@ class UIStyleSettingsDialog : public CDialogDpiAware<UIStyleSettingsDialog> {
   LRESULT OnClose(UINT, WPARAM, LPARAM, BOOL&);
   LRESULT OnOK(WORD, WORD code, HWND, BOOL&);
   LRESULT OnSelectFont(WORD, WORD code, HWND, BOOL&);
+  LRESULT OnImportSsf(WORD, WORD code, HWND, BOOL&);
   LRESULT OnColorSchemeSelChange(WORD, WORD, HWND, BOOL&);
   LRESULT OnColorSettingSelChange(WORD, WORD, HWND, BOOL&);
   LRESULT OnSetColor(WORD, WORD, HWND, BOOL&);
