@@ -285,9 +285,11 @@ int At(const std::vector<int>& values, size_t i) {
   return i < values.size() ? values[i] : 0;
 }
 
-// map a single-image Sogou scheme ([Scheme_H1] / [Scheme_V1]) to back_image_*
+// map a single-image Sogou scheme ([Scheme_H1] / [Scheme_V1]) to
+// <key>, <key>_slice and <key>_padding
 bool AddBackImage(const Ini& ini,
                   const wchar_t* section,
+                  const std::string& key,
                   const std::string& skin_dir,
                   const SkinFiles& files,
                   ImportedColorScheme* scheme) {
@@ -306,9 +308,9 @@ bool AddBackImage(const Ini& ini,
   snprintf(padding, sizeof(padding), "%d, %d, %d, %d",
            (std::max)(At(pinyin, 2), At(zhongwen, 2)), At(pinyin, 0),
            (std::max)(At(pinyin, 3), At(zhongwen, 3)), At(zhongwen, 1));
-  scheme->values.emplace_back("back_image", skin_dir + "/" + wtou8(pic));
-  scheme->values.emplace_back("back_image_slice", slice);
-  scheme->values.emplace_back("back_image_padding", padding);
+  scheme->values.emplace_back(key, skin_dir + "/" + wtou8(pic));
+  scheme->values.emplace_back(key + "_slice", slice);
+  scheme->values.emplace_back(key + "_padding", padding);
   return true;
 }
 
@@ -394,21 +396,11 @@ bool ImportSsfSkin(const std::filesystem::path& ssf_path,
       {"hilited_mark_color", WeaselColor(0, 0)},
   };
 
+  // one scheme carries both images; the panel picks one by layout direction
   const std::string skin_dir = "skins/" + id;
-  ImportedColorScheme horizontal = base;
-  const bool has_horizontal =
-      AddBackImage(ini, L"scheme_h1", skin_dir, files, &horizontal);
-  ImportedColorScheme vertical = base;
-  const bool has_vertical =
-      AddBackImage(ini, L"scheme_v1", skin_dir, files, &vertical);
-  if (has_horizontal || !has_vertical)
-    schemes->push_back(horizontal);
-  if (has_vertical) {
-    if (has_horizontal) {
-      vertical.id += "_vertical";
-      vertical.name += wtou8(std::wstring(L"（竖排）"));
-    }
-    schemes->push_back(vertical);
-  }
+  AddBackImage(ini, L"scheme_h1", "back_image", skin_dir, files, &base);
+  AddBackImage(ini, L"scheme_v1", "back_image_vertical", skin_dir, files,
+               &base);
+  schemes->push_back(base);
   return true;
 }

@@ -1373,34 +1373,43 @@ static void _RimeGetIntQuad(RimeConfig* config,
                              &out[i]);
 }
 
-// load background image (skin) settings of a color scheme
+// load one background image (skin) with its geometry, keys under |key|
 static void _LoadBackImage(RimeConfig* config,
-                           const std::string& prefix,
-                           UIStyle& style) {
-  style.back_image.clear();
-  std::fill(std::begin(style.back_image_slice),
-            std::end(style.back_image_slice), 0);
-  std::fill(std::begin(style.back_image_padding),
-            std::end(style.back_image_padding), 0);
-  style.back_image_anchor_x = style.back_image_anchor_y = -1;
+                           const std::string& key,
+                           std::wstring& image,
+                           int (&slice)[4],
+                           int (&padding)[4]) {
+  image.clear();
+  std::fill(std::begin(slice), std::end(slice), 0);
+  std::fill(std::begin(padding), std::end(padding), 0);
   char buffer[MAX_PATH * 3] = {0};
-  if (!rime_api->config_get_string(config, (prefix + "/back_image").c_str(),
-                                   buffer, sizeof(buffer) - 1))
+  if (!rime_api->config_get_string(config, key.c_str(), buffer,
+                                   sizeof(buffer) - 1))
     return;
   const fs::path resource(u8tow(buffer));
   for (const auto& path : {resource, WeaselUserDataPath() / resource,
                            WeaselSharedDataPath() / resource}) {
     std::error_code ec;
     if (path.is_absolute() && fs::is_regular_file(path, ec)) {
-      style.back_image = path.wstring();
+      image = path.wstring();
       break;
     }
   }
-  if (style.back_image.empty())
+  if (image.empty())
     return;
-  _RimeGetIntQuad(config, prefix + "/back_image_slice", style.back_image_slice);
-  _RimeGetIntQuad(config, prefix + "/back_image_padding",
-                  style.back_image_padding);
+  _RimeGetIntQuad(config, key + "_slice", slice);
+  _RimeGetIntQuad(config, key + "_padding", padding);
+}
+
+// load background image (skin) settings of a color scheme
+static void _LoadBackImages(RimeConfig* config,
+                            const std::string& prefix,
+                            UIStyle& style) {
+  _LoadBackImage(config, prefix + "/back_image", style.back_image,
+                 style.back_image_slice, style.back_image_padding);
+  _LoadBackImage(config, prefix + "/back_image_vertical",
+                 style.back_image_vertical, style.back_image_vertical_slice,
+                 style.back_image_vertical_padding);
   int anchor[4] = {-1, -1, 0, 0};
   _RimeGetIntQuad(config, prefix + "/back_image_anchor", anchor);
   style.back_image_anchor_x = anchor[0];
@@ -1463,7 +1472,7 @@ static bool _UpdateUIStyleColor(RimeConfig* config,
           style.hilited_label_text_color);
     COLOR("hilited_mark_color", style.hilited_mark_color, 0);
 #undef COLOR
-    _LoadBackImage(config, prefix, style);
+    _LoadBackImages(config, prefix, style);
     return true;
   }
   return false;

@@ -136,6 +136,7 @@ class WeaselPanel {
   // position of the layout's origin inside the window (skin padding)
   CPoint m_skinOffset{0, 0};
   bool m_skinActive = false;
+  int m_skinSlice[4] = {0, 0, 0, 0};
   ComPtr<ID2D1Bitmap1> m_skinBitmap;
 
  public:

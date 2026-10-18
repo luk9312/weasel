@@ -16,8 +16,8 @@ struct ImportedColorScheme {
 
 // Unpacks a Sogou Pinyin skin (.ssf, either a plain zip or the encrypted
 // format) into <user_dir>/skins/<skin id>/ and builds color schemes from its
-// skin.ini: one for the horizontal layout and, when the skin has one, one for
-// the vertical layout.
+// skin.ini, with separate background images for horizontal and vertical
+// layouts when the skin has both.
 bool ImportSsfSkin(const std::filesystem::path& ssf_path,
                    const std::filesystem::path& user_dir,
                    std::vector<ImportedColorScheme>* schemes,

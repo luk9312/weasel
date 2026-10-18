@@ -293,10 +293,14 @@ struct UIStyle {
   int prevpage_color;
   int nextpage_color;
   // background image (skin) of the color scheme, 9-slice stretched; geometry
-  // values are in image pixels: slice/padding as left, top, right, bottom
+  // values are in image pixels: slice/padding as left, top, right, bottom.
+  // The vertical image is used for the vertical layout, when there is one.
   std::wstring back_image;
   int back_image_slice[4];
   int back_image_padding[4];
+  std::wstring back_image_vertical;
+  int back_image_vertical_slice[4];
+  int back_image_vertical_padding[4];
   int back_image_anchor_x;
   int back_image_anchor_y;
   // per client
@@ -375,6 +379,9 @@ struct UIStyle {
         back_image(),
         back_image_slice{0, 0, 0, 0},
         back_image_padding{0, 0, 0, 0},
+        back_image_vertical(),
+        back_image_vertical_slice{0, 0, 0, 0},
+        back_image_vertical_padding{0, 0, 0, 0},
         back_image_anchor_x(-1),
         back_image_anchor_y(-1),
         baseline(0),
@@ -444,6 +451,11 @@ struct UIStyle {
                sizeof(back_image_slice)) != 0 ||
         memcmp(back_image_padding, st.back_image_padding,
                sizeof(back_image_padding)) != 0 ||
+        back_image_vertical != st.back_image_vertical ||
+        memcmp(back_image_vertical_slice, st.back_image_vertical_slice,
+               sizeof(back_image_vertical_slice)) != 0 ||
+        memcmp(back_image_vertical_padding, st.back_image_vertical_padding,
+               sizeof(back_image_vertical_padding)) != 0 ||
         back_image_anchor_x != st.back_image_anchor_x ||
         back_image_anchor_y != st.back_image_anchor_y ||
         client_caps != st.client_caps);
@@ -526,6 +538,9 @@ void serialize(Archive& ar, weasel::UIStyle& s, const unsigned int version) {
   ar & s.back_image;
   ar & s.back_image_slice;
   ar & s.back_image_padding;
+  ar & s.back_image_vertical;
+  ar & s.back_image_vertical_slice;
+  ar & s.back_image_vertical_padding;
   ar & s.back_image_anchor_x;
   ar & s.back_image_anchor_y;
   // per client

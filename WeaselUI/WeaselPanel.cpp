@@ -431,16 +431,32 @@ void WeaselPanel::_UpdateSkin() {
   const bool has_panel_content =
       m_candidateCount > 0 ||
       (!m_layout->IsInlinePreedit() && !m_ctx.preedit.empty());
-  if (m_style.back_image.empty() || hide_candidates || !has_panel_content ||
+  // the vertical layout prefers the vertical image; either one serves as the
+  // fallback of the other
+  const bool has_vertical = !m_style.back_image_vertical.empty();
+  const bool use_vertical =
+      has_vertical && (m_style.layout_type == UIStyle::LAYOUT_VERTICAL ||
+                       m_style.back_image.empty());
+  const std::wstring& path =
+      use_vertical ? m_style.back_image_vertical : m_style.back_image;
+  if (path.empty() || hide_candidates || !has_panel_content ||
       IS_FULLSCREENLAYOUT(m_style) || !m_pD2D->dc)
     return;
-  if (FAILED(m_pD2D->GetCachedBmpFromFile(m_style.back_image, m_skinBitmap)) ||
-      !m_skinBitmap)
+  if (FAILED(m_pD2D->GetCachedBmpFromFile(path, m_skinBitmap)) || !m_skinBitmap)
     return;
+  const int* slice = use_vertical ? m_style.back_image_vertical_slice
+                                  : m_style.back_image_slice;
+  std::copy(slice, slice + 4, m_skinSlice);
   const auto image = m_skinBitmap->GetPixelSize();
-  const int* padding = m_style.back_image_padding;
-  const int left = DPI_SCALE(padding[0]), top = DPI_SCALE(padding[1]);
-  const int right = DPI_SCALE(padding[2]), bottom = DPI_SCALE(padding[3]);
+  const int* padding = use_vertical ? m_style.back_image_vertical_padding
+                                    : m_style.back_image_padding;
+  // padding is where the text starts, so leave out the layout's own margins
+  const int margin_x = m_layout->offsetX + m_layout->real_margin_x;
+  const int margin_y = m_layout->offsetY + m_layout->real_margin_y;
+  const int left = DPI_SCALE(padding[0]) - margin_x;
+  const int top = DPI_SCALE(padding[1]) - margin_y;
+  const int right = DPI_SCALE(padding[2]) - margin_x;
+  const int bottom = DPI_SCALE(padding[3]) - margin_y;
   m_windowSize.cx =
       MAX((int)content.cx + left + right, DPI_SCALE((int)image.width));
   m_windowSize.cy =
@@ -452,7 +468,7 @@ void WeaselPanel::_UpdateSkin() {
 void WeaselPanel::_DrawSkin(const CRect& rc) {
   const auto image = m_skinBitmap->GetPixelSize();
   const int w = (int)image.width, h = (int)image.height;
-  const int* slice = m_style.back_image_slice;
+  const int* slice = m_skinSlice;
   const int l = MIN(MAX(slice[0], 0), w), r = MIN(MAX(slice[2], 0), w - l);
   const int t = MIN(MAX(slice[1], 0), h), b = MIN(MAX(slice[3], 0), h - t);
   float dl = (float)DPI_SCALE(l), dr = (float)DPI_SCALE(r);
