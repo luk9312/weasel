@@ -211,6 +211,25 @@ bool UIStyleSettings::SelectColorScheme(const std::string& color_scheme_id) {
   return true;
 }
 
+bool UIStyleSettings::AddColorScheme(const ImportedColorScheme& scheme) {
+  RimeConfig config = {0};
+  if (!api_->settings_get_config(settings_, &config))
+    return false;
+  RimeApi* rime = rime_get_api();
+  const std::string prefix = "preset_color_schemes/" + scheme.id + "/";
+  // the deployed config serves the scheme list and preview until the next
+  // deployment; the customization is what gets saved
+  const auto set = [&](const std::string& key, const std::string& value) {
+    const std::string path = prefix + key;
+    return rime->config_set_string(&config, path.c_str(), value.c_str()) &&
+           api_->customize_string(settings_, path.c_str(), value.c_str());
+  };
+  bool ok = set("name", scheme.name) && set("author", scheme.author);
+  for (const auto& value : scheme.values)
+    ok = ok && set(value.first, value.second);
+  return ok;
+}
+
 bool UIStyleSettings::SetFontFace(const std::string& key,
                                   const std::string& font_face_value) {
   std::wstring* current = nullptr;

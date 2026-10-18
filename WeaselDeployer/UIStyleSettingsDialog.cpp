@@ -311,6 +311,41 @@ LRESULT UIStyleSettingsDialog::OnSelectFont(WORD, WORD, HWND, BOOL&) {
   return 0;
 }
 
+LRESULT UIStyleSettingsDialog::OnImportSsf(WORD, WORD, HWND, BOOL&) {
+  CFileDialog dlg(TRUE, L"ssf", nullptr, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+                  L"搜狗输入法皮肤 (*.ssf)\0*.ssf\0所有文件 (*.*)\0*.*\0",
+                  m_hWnd);
+  if (dlg.DoModal() != IDOK)
+    return 0;
+  std::vector<ImportedColorScheme> schemes;
+  std::wstring error;
+  if (!ImportSsfSkin(dlg.m_szFileName, WeaselUserDataPath(), &schemes,
+                     &error)) {
+    MessageBox(error.c_str(), L"导入搜狗皮肤", MB_ICONWARNING | MB_OK);
+    return 0;
+  }
+  for (const auto& scheme : schemes) {
+    if (!settings_->AddColorScheme(scheme)) {
+      MessageBox(L"无法添加配色。", L"导入搜狗皮肤", MB_ICONWARNING | MB_OK);
+      return 0;
+    }
+  }
+  // list the new schemes and preview the first one
+  Populate();
+  const std::string& id = schemes.front().id;
+  for (size_t i = 0; i < preset_.size(); ++i) {
+    if (preset_[i].color_scheme_id == id) {
+      color_schemes_.SetCurSel(static_cast<int>(i));
+      settings_->SelectColorScheme(id);
+      PopulateColorSettings();
+      RefreshStyleList();
+      UpdatePreview();
+      break;
+    }
+  }
+  return 0;
+}
+
 LRESULT UIStyleSettingsDialog::OnColorSchemeSelChange(WORD, WORD, HWND, BOOL&) {
   int index = color_schemes_.GetCurSel();
   if (index >= 0 && index < (int)preset_.size()) {
