@@ -311,6 +311,13 @@ bool AddBackImage(const Ini& ini,
   scheme->values.emplace_back(key, skin_dir + "/" + wtou8(pic));
   scheme->values.emplace_back(key + "_slice", slice);
   scheme->values.emplace_back(key + "_padding", padding);
+  // anchor: the image point Sogou places at the caret
+  const auto anchor = ParseInts(Get(ini, section, L"anchor"));
+  if (anchor.size() >= 2 && key == "back_image") {
+    char value[32];
+    snprintf(value, sizeof(value), "%d, %d", anchor[0], anchor[1]);
+    scheme->values.emplace_back("back_image_anchor", value);
+  }
   return true;
 }
 

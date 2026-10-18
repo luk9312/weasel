@@ -484,8 +484,21 @@ void WeaselPanel::_DrawSkin(const CRect& rc) {
     dt *= k;
     db *= k;
   }
-  const float sx[4] = {0.0f, (float)l, (float)(w - r), (float)w};
-  const float sy[4] = {0.0f, (float)t, (float)(h - b), (float)h};
+  // source ranges of the left/top, middle and right/bottom slices; when the
+  // fixed edges cover the whole image, the middle stretches the pixel column
+  // (or row) where they meet so the window is not left empty there
+  float sx[3][2] = {
+      {0.0f, (float)l}, {(float)l, (float)(w - r)}, {(float)(w - r), (float)w}};
+  float sy[3][2] = {
+      {0.0f, (float)t}, {(float)t, (float)(h - b)}, {(float)(h - b), (float)h}};
+  if (sx[1][1] <= sx[1][0] && w > 0) {
+    sx[1][0] = (float)MIN(MAX(l - 1, 0), w - 1);
+    sx[1][1] = sx[1][0] + 1.0f;
+  }
+  if (sy[1][1] <= sy[1][0] && h > 0) {
+    sy[1][0] = (float)MIN(MAX(t - 1, 0), h - 1);
+    sy[1][1] = sy[1][0] + 1.0f;
+  }
   // whole pixels on the destination avoid seams between the slices
   const float dx[4] = {(float)rc.left, roundf(rc.left + dl),
                        roundf(rc.right - dr), (float)rc.right};
@@ -493,11 +506,12 @@ void WeaselPanel::_DrawSkin(const CRect& rc) {
                        roundf(rc.bottom - db), (float)rc.bottom};
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
-      if (sx[j + 1] <= sx[j] || sy[i + 1] <= sy[i] || dx[j + 1] <= dx[j] ||
+      if (sx[j][1] <= sx[j][0] || sy[i][1] <= sy[i][0] || dx[j + 1] <= dx[j] ||
           dy[i + 1] <= dy[i])
         continue;
       const D2D1_RECT_F dst = D2D1::RectF(dx[j], dy[i], dx[j + 1], dy[i + 1]);
-      const D2D1_RECT_F src = D2D1::RectF(sx[j], sy[i], sx[j + 1], sy[i + 1]);
+      const D2D1_RECT_F src =
+          D2D1::RectF(sx[j][0], sy[i][0], sx[j][1], sy[i][1]);
       m_pD2D->dc->DrawBitmap(m_skinBitmap.Get(), &dst, 1.0f,
                              D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, &src,
                              nullptr);
