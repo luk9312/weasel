@@ -6,6 +6,9 @@
 #include <WeaselUtility.h>
 #include <WeaselStyleColor.h>
 
+// CFileDialog for importing skins
+#pragma comment(lib, "comdlg32.lib")
+
 static bool IsValidColorValue(const std::string& value) {
   unsigned int parsed = 0;
   return weasel::ParseColorValue(value, weasel::COLOR_ABGR, &parsed);
