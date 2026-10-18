@@ -157,6 +157,8 @@ void D2D::InitDirect2D() {
   ClearDeviceDependentCaches();
   cachedIcon = nullptr;
   cachedIconBitmap.Reset();
+  cachedImagePath.clear();
+  cachedImageBitmap.Reset();
 
   // Use shared device resources to avoid recreating expensive objects per
   // window
@@ -821,6 +823,73 @@ HRESULT D2D::GetCachedBmpFromIcon(HICON hIcon, ComPtr<ID2D1Bitmap1>& pBitmap) {
   if (SUCCEEDED(hr)) {
     cachedIcon = hIcon;
     cachedIconBitmap = pBitmap;
+  }
+  return hr;
+}
+
+HRESULT D2D::GetCachedBmpFromFile(const std::wstring& path,
+                                  ComPtr<ID2D1Bitmap1>& pBitmap) {
+  if (path == cachedImagePath && cachedImageBitmap) {
+    pBitmap = cachedImageBitmap;
+    return S_OK;
+  }
+  pBitmap.Reset();
+  IWICImagingFactory* pWicFactory = DeviceResources::Get().wicFactory.Get();
+  if (!pWicFactory || !dc)
+    return E_POINTER;
+  ComPtr<IWICBitmapDecoder> decoder;
+  HRESULT hr = pWicFactory->CreateDecoderFromFilename(
+      path.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad,
+      decoder.ReleaseAndGetAddressOf());
+  if (FAILED(hr))
+    return hr;
+  ComPtr<IWICBitmapFrameDecode> frame;
+  hr = decoder->GetFrame(0, frame.ReleaseAndGetAddressOf());
+  if (FAILED(hr))
+    return hr;
+  // convert to straight alpha first, so that the color key can be applied
+  ComPtr<IWICFormatConverter> converter;
+  hr = pWicFactory->CreateFormatConverter(converter.ReleaseAndGetAddressOf());
+  if (FAILED(hr))
+    return hr;
+  hr = converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppBGRA,
+                             WICBitmapDitherTypeNone, nullptr, 0.0f,
+                             WICBitmapPaletteTypeMedianCut);
+  if (FAILED(hr))
+    return hr;
+  UINT width = 0, height = 0;
+  hr = converter->GetSize(&width, &height);
+  if (FAILED(hr) || !width || !height)
+    return FAILED(hr) ? hr : E_FAIL;
+  const UINT stride = width * 4;
+  std::vector<BYTE> pixels((size_t)stride * height);
+  hr = converter->CopyPixels(nullptr, stride, (UINT)pixels.size(),
+                             pixels.data());
+  if (FAILED(hr))
+    return hr;
+  bool opaque = true;
+  for (size_t i = 3; i < pixels.size() && opaque; i += 4)
+    opaque = pixels[i] == 0xff;
+  for (size_t i = 0; i < pixels.size(); i += 4) {
+    BYTE* p = &pixels[i];  // B, G, R, A
+    if (opaque && p[0] == 0xff && p[1] == 0x00 && p[2] == 0xff) {
+      p[0] = p[1] = p[2] = p[3] = 0;
+    } else if (p[3] != 0xff) {
+      p[0] = (BYTE)(p[0] * p[3] / 255);
+      p[1] = (BYTE)(p[1] * p[3] / 255);
+      p[2] = (BYTE)(p[2] * p[3] / 255);
+    }
+  }
+  const auto props =
+      D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE,
+                              D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                                                D2D1_ALPHA_MODE_PREMULTIPLIED),
+                              96.0f, 96.0f);
+  hr = dc->CreateBitmap(D2D1::SizeU(width, height), pixels.data(), stride,
+                        props, pBitmap.ReleaseAndGetAddressOf());
+  if (SUCCEEDED(hr)) {
+    cachedImagePath = path;
+    cachedImageBitmap = pBitmap;
   }
   return hr;
 }

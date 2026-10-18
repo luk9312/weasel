@@ -61,6 +61,9 @@ class WeaselPanel {
   void _UpdateHideCandidates();
 
   void _UpdateOffsetY(CRect& arc, CRect& prc);
+  // background image (skin) of the color scheme
+  void _UpdateSkin();
+  void _DrawSkin(const CRect& rc);
 
   void DoPaint();
   void OnDestroy();
@@ -128,6 +131,12 @@ class WeaselPanel {
   UINT_PTR m_autoHideTimer = 0;
   int m_lastWindowWidth = -1;
   int m_lastWindowHeight = -1;
+  // window size, larger than the layout's content size when a skin is active
+  CSize m_windowSize{0, 0};
+  // position of the layout's origin inside the window (skin padding)
+  CPoint m_skinOffset{0, 0};
+  bool m_skinActive = false;
+  ComPtr<ID2D1Bitmap1> m_skinBitmap;
 
  public:
   void ShowWithTimeout(size_t millisec);
